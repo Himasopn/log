@@ -298,7 +298,7 @@ loginForm.addEventListener('submit', (e) => {
   }, 1500);
 });
 
-/* Generate "AURORA" text points */
+/* Generate "AURORA" text points with high density */
 function generateAuroraPoints() {
   const tempCanvas = document.createElement('canvas');
   const tempCtx = tempCanvas.getContext('2d');
@@ -315,7 +315,7 @@ function generateAuroraPoints() {
   
   const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
   const points = [];
-  const sampling = 3;
+  const sampling = 1.5; // Reduced for higher density
   
   for (let y = 0; y < imageData.height; y += sampling) {
     for (let x = 0; x < imageData.width; x += sampling) {
@@ -339,7 +339,7 @@ function startParticleTransition() {
   loginContainer.classList.add('hide');
   
   const auroraPoints = generateAuroraPoints();
-  const numParticles = 800;
+  const numParticles = 2500; // Increased from 800
   const transitionParticles = [];
   
   const rect = loginContainer.getBoundingClientRect();
@@ -361,7 +361,7 @@ function startParticleTransition() {
       startY,
       targetX: targetPoint.x,
       targetY: targetPoint.y,
-      size: Math.random() * 2 + 1,
+      size: Math.random() * 1.5 + 0.8,
       color: Math.random() > 0.5 ? '#ff6b9d' : (Math.random() > 0.5 ? '#c471ed' : '#12c2e9'),
       alpha: 1
     });

@@ -3,32 +3,135 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Login - Particle Portal</title>
+<title>Particle Circle — Interactive</title>
 <style>
+  /* ============================
+     Reset & base
+     ============================ */
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;width:100%;background:#000;overflow:hidden;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;color:#fff}
-  
+  html,body{height:100%;width:100%;background:#000;overflow:hidden;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;color:#fff}
+  button{font-family:inherit}
+
+  /* ============================
+     App layout
+     ============================ */
   .app {
-    position:relative;width:100vw;height:100vh;
+    position:relative;
+    width:100vw;height:100vh;
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;user-select: none;overflow: hidden;
+    touch-action: manipulation;
+    user-select: none;
+    overflow: hidden;
   }
 
+  /* Canvas full-screen */
   canvas {
-    position:absolute;left:0;top:0;width:100%;height:100%;display:block;z-index:1;
+    position:absolute;left:0;top:0;width:100%;height:100%;display:block;
   }
 
-  /* Login Container */
+  /* Blur target wrapper (so overlay blurs background) */
+  .blur-target { position: absolute; inset:0; z-index: 1; }
+
+  /* ============================
+     Top-right flower menu (presets)
+     ============================ */
+  .bg-toggle {
+    position:absolute; top:18px; right:18px; z-index:80; display:flex; align-items:center; gap:10px;
+  }
+
+  .flower-btn {
+    width:46px; height:46px; border-radius:12px; border:none; background: rgba(255,255,255,0.06);
+    color:white; font-size:20px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.45); transition:transform .12s, background .12s;
+  }
+  .flower-btn:active{ transform: scale(.96) }
+  .flower-btn:hover{ background: rgba(255,255,255,0.09) }
+
+  .bg-menu {
+    position:absolute; top:64px; right:0; min-width:240px; background: rgba(8,8,8,0.72);
+    border-radius:12px; padding:10px; display:grid; gap:8px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    transform-origin: top right; opacity:0; pointer-events:none; transform: translateY(-6px) scale(.98);
+    transition: opacity .16s ease, transform .16s ease; backdrop-filter: blur(6px);
+  }
+  .bg-menu.open { opacity:1; pointer-events:auto; transform: translateY(0) scale(1); }
+
+  .bg-option { display:flex; align-items:center; gap:10px; padding:10px; border-radius:10px; cursor:pointer; background: rgba(255,255,255,0.02); }
+  .bg-option:hover{ background: rgba(255,255,255,0.04); transform: translateY(-2px); }
+  .bg-option .dot { width:36px;height:36px;border-radius:8px; flex-shrink:0; box-shadow: 0 6px 18px rgba(0,0,0,0.55); }
+  .bg-option .label { font-size:14px; color:#fff; opacity:.95 }
+
+  /* ============================
+     Hint
+     ============================ */
+  .hint {
+    position:absolute; left:18px; bottom:18px; z-index:50;
+    background: rgba(0,0,0,0.35); padding:8px 12px; border-radius:999px; font-size:13px; color:#fff; opacity:.9;
+  }
+
+  /* ============================
+     Overlay / loading / buttons
+     ============================ */
+  #overlay {
+    position:absolute; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; opacity:0; transition: opacity .24s ease;
+  }
+  #overlay.active { opacity:1; pointer-events:auto; }
+
+  .overlay-inner {
+    width: min(560px, 92vw); max-width: 92vw;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    padding: 22px; border-radius:14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    backdrop-filter: blur(8px); box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  }
+
+  .spinner {
+    width:72px; height:72px; border-radius:50%;
+    border:7px solid rgba(255,255,255,0.08);
+    border-top-color: #ff6b9d;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text { font-size:15px; opacity:.95; }
+
+  .button-row {
+    display:flex; gap:14px; align-items:center; justify-content:center; flex-wrap:wrap;
+  }
+
+  .btn-main {
+    padding:14px 28px; border-radius:999px; border:none; cursor:pointer;
+    font-weight:800; text-transform:uppercase; letter-spacing:0.6px; font-size:13px;
+    color:#111; background: linear-gradient(90deg,#ff6b9d,#ff9fbf); box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+  }
+
+  .btn-alt {
+    padding:14px 28px; border-radius:999px; border:none; cursor:pointer;
+    font-weight:700; font-size:13px; color:#fff; background: linear-gradient(90deg,#09aaff,#0072ff); box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+  }
+
+  .btn-back {
+    margin-top:8px; padding:8px 18px; font-size:12px; border-radius:8px; background: rgba(255,255,255,0.08);
+    color:#fff; border:none; cursor:pointer;
+  }
+
+  /* blur CSS class applied to blur-target */
+  .blur-target.blur { filter: blur(6px) saturate(.92); transition: filter .28s ease; pointer-events:none; }
+
+  /* ============================
+     LOGIN PAGE STYLES
+     ============================ */
   .login-container {
     position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    z-index:10;width:min(420px,90vw);
+    z-index:300;width:min(420px,90vw);
     background:rgba(15,15,25,0.85);backdrop-filter:blur(20px);
     border-radius:24px;padding:48px 40px;
     box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.05);
-    opacity:1;transition:opacity 0.4s ease;
+    opacity:1;transition:opacity 0.5s ease, transform 0.5s ease;
   }
   
-  .login-container.hide {opacity:0;pointer-events:none;}
+  .login-container.hide {
+    opacity:0;pointer-events:none;transform:translate(-50%,-50%) scale(0.9);
+  }
 
   .logo {
     text-align:center;margin-bottom:32px;font-size:36px;
@@ -95,9 +198,8 @@
     75%{transform:translateX(10px)}
   }
 
-  /* Loading overlay */
   .loading-overlay {
-    position:absolute;inset:0;z-index:100;
+    position:absolute;inset:0;z-index:250;
     background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
     display:none;align-items:center;justify-content:center;
   }
@@ -111,18 +213,49 @@
     animation:spin 1s linear infinite;
   }
 
-  @keyframes spin {to{transform:rotate(360deg)}}
-
-  @media (max-width:480px) {
+  @media (max-width:520px) {
+    .overlay-inner { padding: 16px }
+    .spinner { width:56px; height:56px; border-width:6px }
     .login-container {padding:36px 28px;}
     .logo {font-size:28px;}
   }
+
+  body.preset-0 { background: #000; }
 </style>
 </head>
-<body>
-  <div class="app">
-    <canvas id="canvas"></canvas>
-    
+<body class="preset-0">
+  <div class="app" id="app">
+
+    <!-- blur-target holds canvas and visual content that gets blurred -->
+    <div class="blur-target" id="blurTarget">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- Top right flower menu -->
+    <div class="bg-toggle" id="bgToggle">
+      <button id="flowerBtn" class="flower-btn" aria-expanded="false" title="Background presets">🌸</button>
+      <div id="bgMenu" class="bg-menu" aria-hidden="true"></div>
+    </div>
+
+    <div class="hint">Triple-tap center to open</div>
+
+    <!-- Overlay: spinner + buttons (triple-tap feature) -->
+    <div id="overlay" aria-hidden="true">
+      <div class="overlay-inner" role="dialog" aria-modal="true" aria-label="Loading and actions">
+        <div id="spinner" class="spinner" aria-hidden="false"></div>
+        <div id="loadingText" class="loading-text">Loading…</div>
+
+        <div id="buttonArea" style="display:none; width:100%; align-items:center; justify-content:center; flex-direction:column;">
+          <div class="button-row" style="margin-bottom:8px;">
+            <button id="membersBtn" class="btn-main" type="button">MEMBERS</button>
+            <button id="projectBtn" class="btn-alt" type="button">PROJECT</button>
+          </div>
+          <button id="backBtn" class="btn-back" type="button">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOGIN PAGE -->
     <div class="login-container" id="loginContainer">
       <div class="logo">PARTICLE</div>
       
@@ -146,9 +279,18 @@
     <div class="loading-overlay" id="loadingOverlay">
       <div class="loader"></div>
     </div>
+
   </div>
 
 <script>
+/* ===============================================
+   Full interactive particle-circle system
+   + Login page integration
+   + triple-tap overlay with MEMBERS / PROJECT / BACK
+   + top-right flower preset menu
+   + Mouse interaction
+   =============================================== */
+
 /* Valid credentials */
 const VALID_USERS = {
   'AS': 'aurora#15+x=50@ever',
@@ -157,7 +299,11 @@ const VALID_USERS = {
   'SHAHIL': 'sh#mitochondria@cell'
 };
 
-/* Canvas setup */
+let isLoggedIn = false;
+
+/* ---------------------------
+   Canvas setup + DPR handling
+   --------------------------- */
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let DPR = Math.max(1, window.devicePixelRatio || 1);
@@ -171,18 +317,25 @@ function setSize() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 setSize();
-window.addEventListener('resize', () => { setSize(); rebuildParticles(); });
+window.addEventListener('resize', () => { setSize(); rebuildParticles(); updateCenterForParticles(); });
 
-/* Particle system parameters */
+/* ---------------------------
+   Particle system parameters
+   --------------------------- */
 let particles = [];
 let angle = 0;
+let mouseX = -9999, mouseY = -9999;
 
 const NUM_RINGS = 50;
 const MIN_PARTICLE_SEP = 4;
 const MAX_PARTICLES_LIMIT = 8000;
+let totalParticlesCount = 0;
+
 const RETURN_SPEED = 0.03;
 
-/* Build particles in rings */
+/* ---------------------------
+   Build particles in rings (even spacing)
+   --------------------------- */
 function rebuildParticles() {
   particles = [];
   const w = window.innerWidth;
@@ -220,31 +373,237 @@ function rebuildParticles() {
       particles.push(p);
     }
   }
+  totalParticlesCount = particles.length;
 }
 rebuildParticles();
 
-/* Background drawing */
-function drawBackground() {
-  const w = window.innerWidth, h = window.innerHeight;
-  const g = ctx.createRadialGradient(w*0.5,h*0.45,40,w*0.5,h*0.45, Math.max(w,h));
-  g.addColorStop(0,'#071926');
-  g.addColorStop(0.5,'#001827');
-  g.addColorStop(1,'#000');
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,w,h);
+function updateCenterForParticles() {
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  particles.forEach(p => { p.centerX = cx; p.centerY = cy; });
 }
 
-/* Particle update & draw */
+/* ---------------------------
+   Background & preset drawing
+   --------------------------- */
+const presets = (function(){
+  const presetsArr = [];
+
+  presetsArr.push({
+    id: 'classic-black',
+    label: 'Classic Black',
+    dot: '#000000',
+    draw: function() {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0,0,window.innerWidth, window.innerHeight);
+    }
+  });
+
+  presetsArr.push({
+    id: 'deep-gradient',
+    label: 'Deep Radial Gradient',
+    dot: '#041926',
+    draw: function() {
+      const w = window.innerWidth, h = window.innerHeight;
+      const g = ctx.createRadialGradient(w*0.5,h*0.45,40,w*0.5,h*0.45, Math.max(w,h));
+      g.addColorStop(0,'#071926');
+      g.addColorStop(0.5,'#001827');
+      g.addColorStop(1,'#000');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,w,h);
+    }
+  });
+
+  presetsArr.push({
+    id: 'soft-noise',
+    label: 'Soft Noise + Vignette',
+    dot: '#0b1b2b',
+    draw: function() {
+      const w = window.innerWidth, h = window.innerHeight;
+      const g = ctx.createLinearGradient(0,0,w,h);
+      g.addColorStop(0,'#041120');
+      g.addColorStop(1,'#001019');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,w,h);
+
+      const vg = ctx.createRadialGradient(w/2,h/2, Math.min(w,h)/6, w/2,h/2, Math.max(w,h));
+      vg.addColorStop(0,'rgba(255,255,255,0)');
+      vg.addColorStop(1,'rgba(0,0,0,0.45)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0,0,w,h);
+
+      ctx.globalAlpha = 0.035;
+      for (let i=0;i<90;i++){
+        const x = Math.random()*w;
+        const y = Math.random()*h;
+        const r = Math.random()*1.6;
+        ctx.beginPath();
+        ctx.fillStyle = '#ffffff';
+        ctx.arc(x,y,r,0,Math.PI*2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  });
+
+  presetsArr.push({
+    id: 'starfield',
+    label: 'Subtle Starfield',
+    dot: '#001628',
+    draw: (function(){
+      const stars = [];
+      const cacheSize = 220;
+      let inited = false;
+      return function(){
+        const w = window.innerWidth, h = window.innerHeight;
+        if (!inited){
+          stars.length = 0;
+          for (let i=0;i<cacheSize;i++){
+            stars.push({
+              x: Math.random()*w,
+              y: Math.random()*h,
+              r: Math.random()*1.6,
+              s: 0.2 + Math.random()*0.9,
+              vx: (Math.random()-0.5)*0.02,
+              vy: -0.02 - Math.random()*0.04
+            });
+          }
+          inited = true;
+        }
+        const g = ctx.createLinearGradient(0,0,w,h);
+        g.addColorStop(0,'#000814');
+        g.addColorStop(1,'#00020a');
+        ctx.fillStyle = g;
+        ctx.fillRect(0,0,w,h);
+
+        for (let i=0;i<stars.length;i++){
+          const s = stars[i];
+          s.x += s.vx; s.y += s.vy;
+          if (s.y < -10) { s.x = Math.random()*w; s.y = h + 10; }
+          if (s.x < -10) s.x = w + 10;
+          const tw = 0.6 + Math.sin((Date.now()*0.002) + i)*0.4;
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(255,255,255,${s.s * tw})`;
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+          ctx.fill();
+        }
+      };
+    })()
+  });
+
+  presetsArr.push({
+    id: 'soft-pastel',
+    label: 'Soft Pastel Gradient',
+    dot: '#ffd1e8',
+    draw: function(){
+      const w = window.innerWidth, h = window.innerHeight;
+      const g = ctx.createLinearGradient(0,0,w,h);
+      g.addColorStop(0,'#0b0910');
+      g.addColorStop(0.3,'#0f1724');
+      g.addColorStop(1,'#041018');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,w,h);
+
+      const grad = ctx.createLinearGradient(0,0,w,0);
+      grad.addColorStop(0,'rgba(255,120,180,0.06)');
+      grad.addColorStop(0.5,'rgba(120,200,255,0.06)');
+      grad.addColorStop(1,'rgba(160,120,255,0.06)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,w,h);
+    }
+  });
+
+  presetsArr.push({
+    id: 'glassy',
+    label: 'Glassy Blur Lights',
+    dot: '#072b3a',
+    draw: (function(){
+      const blobs = [];
+      let ready = false;
+      return function(){
+        const w = window.innerWidth, h = window.innerHeight;
+        if (!ready){
+          blobs.length = 0;
+          const n = 6;
+          for (let i=0;i<n;i++){
+            blobs.push({
+              x: Math.random()*w,
+              y: Math.random()*h,
+              r: Math.max(w,h)*0.2 * (0.6 + Math.random()*0.6),
+              vx: (Math.random()-0.5)*0.24,
+              vy: (Math.random()-0.5)*0.24,
+              c: `hsla(${Math.floor(Math.random()*360)},70%,60%,0.12)`
+            });
+          }
+          ready = true;
+        }
+        ctx.fillStyle = '#02060a';
+        ctx.fillRect(0,0,window.innerWidth, window.innerHeight);
+
+        for (let b of blobs){
+          b.x += b.vx; b.y += b.vy;
+          if (b.x < -b.r) b.x = window.innerWidth + b.r;
+          if (b.x > window.innerWidth + b.r) b.x = -b.r;
+          if (b.y < -b.r) b.y = window.innerHeight + b.r;
+          if (b.y > window.innerHeight + b.r) b.y = -b.r;
+
+          const rg = ctx.createRadialGradient(b.x, b.y, b.r*0.1, b.x, b.y, b.r);
+          rg.addColorStop(0, b.c);
+          rg.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = rg;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+          ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+        }
+      };
+    })()
+  });
+
+  return presetsArr;
+})();
+
+let presetIndex = 0;
+function drawBackground() {
+  const preset = presets[presetIndex];
+  if (preset && preset.draw) {
+    preset.draw();
+  } else {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+  }
+}
+
+/* ---------------------------
+   Particle update & draw
+   --------------------------- */
 function updateAndDrawParticles() {
+  const cw = window.innerWidth;
+  const ch = window.innerHeight;
+  const maxDist = 220;
+
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
-    
+
     const tx = p.centerX + Math.cos(angle + p.angleOffset) * p.radius;
     const ty = p.centerY + Math.sin(angle + p.angleOffset) * p.radius;
-    
+
+    const dx = mouseX - p.x;
+    const dy = mouseY - p.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist < maxDist && dist > 0) {
+      const force = (maxDist - dist) / maxDist;
+      const repelX = (p.x - mouseX) / dist;
+      const repelY = (p.y - mouseY) / dist;
+      p.x += repelX * force * 28;
+      p.y += repelY * force * 28;
+    }
+
     p.x += (tx - p.x) * RETURN_SPEED;
     p.y += (ty - p.y) * RETURN_SPEED;
-    
+
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
     ctx.fillStyle = p.color;
@@ -252,21 +611,224 @@ function updateAndDrawParticles() {
   }
 }
 
-/* Main animation loop */
+/* ---------------------------
+   Main animation loop
+   --------------------------- */
+let rafId = null;
 function loop() {
   ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
   drawBackground();
   angle += 0.0055;
   updateAndDrawParticles();
-  requestAnimationFrame(loop);
+  rafId = requestAnimationFrame(loop);
 }
-loop();
+rafId = requestAnimationFrame(loop);
 
-/* Login form handling */
+/* ---------------------------
+   Interaction (mouse/touch) - ONLY AFTER LOGIN
+   --------------------------- */
+canvas.addEventListener('mousemove', (e) => { 
+  if(isLoggedIn) { mouseX = e.clientX; mouseY = e.clientY; }
+});
+canvas.addEventListener('mouseleave', () => { mouseX = -9999; mouseY = -9999; });
+
+canvas.addEventListener('touchstart', (e) => {
+  if (isLoggedIn && e.touches && e.touches[0]) {
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (isLoggedIn && e.touches && e.touches[0]) {
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchend', (e) => {
+  mouseX = -9999; mouseY = -9999;
+}, { passive: true });
+
+/* ---------------------------
+   Triple-tap detection (ONLY AFTER LOGIN)
+   --------------------------- */
+const overlay = document.getElementById('overlay');
+const spinner = document.getElementById('spinner');
+const loadingText = document.getElementById('loadingText');
+const buttonArea = document.getElementById('buttonArea');
+const membersBtn = document.getElementById('membersBtn');
+const projectBtn = document.getElementById('projectBtn');
+const backBtn = document.getElementById('backBtn');
+const blurTarget = document.getElementById('blurTarget');
+
+let tapTimes = [];
+const TAP_MAX_INTERVAL = 600;
+function isCenterTap(x, y) {
+  const rect = canvas.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = x - cx, dy = y - cy;
+  const dist = Math.hypot(dx, dy);
+  const CENTER_RADIUS = Math.min(window.innerWidth, window.innerHeight) * 0.18;
+  return dist <= CENTER_RADIUS;
+}
+
+canvas.addEventListener('click', (e) => {
+  if(isLoggedIn) registerTap(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('touchend', (e) => {
+  if(isLoggedIn) {
+    const t = e.changedTouches && e.changedTouches[0];
+    if (t) registerTap(t.clientX, t.clientY);
+  }
+}, { passive: true });
+
+function registerTap(clientX, clientY) {
+  const now = Date.now();
+  if (!isCenterTap(clientX, clientY)) {
+    tapTimes = [];
+    return;
+  }
+  tapTimes.push(now);
+  tapTimes = tapTimes.filter(t => now - t <= TAP_MAX_INTERVAL);
+
+  if (tapTimes.length >= 3) {
+    tapTimes = [];
+    triggerOverlaySequence();
+  }
+}
+
+function triggerOverlaySequence() {
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
+  blurTarget.classList.add('blur');
+
+  ```javascript
+  spinner.style.display = '';
+  loadingText.style.display = '';
+  loadingText.textContent = 'Loading…';
+  buttonArea.style.display = 'none';
+
+  const loadDuration = 2000 + Math.floor(Math.random() * 2001);
+  setTimeout(() => {
+    spinner.style.display = 'none';
+    loadingText.style.display = 'none';
+    buttonArea.style.display = 'flex';
+    membersBtn.focus();
+  }, loadDuration);
+}
+
+membersBtn.addEventListener('click', () => {
+  overlay.classList.remove('active');
+  overlay.setAttribute('aria-hidden', 'true');
+  blurTarget.classList.remove('blur');
+  window.open('https://x.com', '_blank', 'noopener,noreferrer');
+});
+
+projectBtn.addEventListener('click', () => {
+  overlay.classList.remove('active');
+  overlay.setAttribute('aria-hidden', 'true');
+  blurTarget.classList.remove('blur');
+  window.open('https://google.com', '_blank', 'noopener,noreferrer');
+});
+
+backBtn.addEventListener('click', () => {
+  overlay.classList.remove('active');
+  overlay.setAttribute('aria-hidden', 'true');
+  blurTarget.classList.remove('blur');
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+    blurTarget.classList.remove('blur');
+    closeBgMenu();
+  }
+});
+
+/* ---------------------------
+   Background preset menu UI (ONLY AFTER LOGIN)
+   --------------------------- */
+const bgMenu = document.getElementById('bgMenu');
+const flowerBtn = document.getElementById('flowerBtn');
+const bgToggle = document.getElementById('bgToggle');
+
+// Hide menu initially
+bgToggle.style.display = 'none';
+
+function buildBgMenu() {
+  bgMenu.innerHTML = '';
+  presets.forEach((p, idx) => {
+    const opt = document.createElement('div');
+    opt.className = 'bg-option';
+    opt.tabIndex = 0;
+    opt.setAttribute('role', 'button');
+    opt.setAttribute('aria-pressed', idx === presetIndex ? 'true' : 'false');
+
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+    dot.style.background = p.dot || '#111';
+    opt.appendChild(dot);
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = p.label;
+    opt.appendChild(label);
+
+    opt.addEventListener('click', () => {
+      presetIndex = idx;
+      closeBgMenu();
+    });
+
+    opt.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        opt.click();
+      }
+    });
+
+    bgMenu.appendChild(opt);
+  });
+}
+buildBgMenu();
+
+function toggleBgMenu() {
+  const open = bgMenu.classList.toggle('open');
+  flowerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  bgMenu.setAttribute('aria-hidden', (!open).toString());
+}
+
+function closeBgMenu() {
+  bgMenu.classList.remove('open');
+  flowerBtn.setAttribute('aria-expanded', 'false');
+  bgMenu.setAttribute('aria-hidden', 'true');
+}
+
+flowerBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleBgMenu();
+});
+
+document.addEventListener('click', (e) => {
+  if (!bgMenu.contains(e.target) && e.target !== flowerBtn) {
+    closeBgMenu();
+  }
+});
+
+/* ---------------------------
+   LOGIN FORM HANDLING
+   --------------------------- */
 const loginForm = document.getElementById('loginForm');
 const errorMsg = document.getElementById('errorMsg');
 const loginContainer = document.getElementById('loginContainer');
 const loadingOverlay = document.getElementById('loadingOverlay');
+const hintElement = document.querySelector('.hint');
+
+// Hide hint initially
+hintElement.style.display = 'none';
 
 loginForm.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -276,7 +838,6 @@ loginForm.addEventListener('submit', (e) => {
   
   errorMsg.classList.remove('show');
   
-  // Check if username exists
   if (!VALID_USERS.hasOwnProperty(username)) {
     errorMsg.textContent = 'Username not registered';
     errorMsg.classList.add('show');
@@ -284,7 +845,6 @@ loginForm.addEventListener('submit', (e) => {
     return;
   }
   
-  // Check if password is correct
   if (VALID_USERS[username] !== password) {
     errorMsg.textContent = 'Wrong password';
     errorMsg.classList.add('show');
@@ -292,180 +852,90 @@ loginForm.addEventListener('submit', (e) => {
     return;
   }
   
-  // Valid login - show loading
+  // Valid login
   loadingOverlay.classList.add('show');
   
   setTimeout(() => {
     loadingOverlay.classList.remove('show');
-    startParticleTransition();
+    startLoginTransition();
   }, 1500);
 });
 
-/* Particle transition animation */
-function startParticleTransition() {
+/* ---------------------------
+   Login to Main Site Transition
+   --------------------------- */
+function startLoginTransition() {
+  // Hide login container
   loginContainer.classList.add('hide');
   
-  const rect = loginContainer.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
+  // Enable all interactive features
+  isLoggedIn = true;
   
-  // Create transition particles from login box
-  const transitionParticles = [];
-  const numTransitionParticles = 1200;
-  
-  // Create particles that form the login box shape initially
-  for (let i = 0; i < numTransitionParticles; i++) {
-    // Create particles in various patterns
-    let x, y;
-    const type = Math.random();
+  // Show UI elements
+  setTimeout(() => {
+    bgToggle.style.display = 'flex';
+    bgToggle.style.opacity = '0';
+    hintElement.style.display = 'block';
+    hintElement.style.opacity = '0';
     
-    if (type < 0.4) {
-      // Circular pattern
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * Math.min(rect.width, rect.height) / 2.5;
-      x = centerX + Math.cos(angle) * radius;
-      y = centerY + Math.sin(angle) * radius;
-    } else if (type < 0.7) {
-      // Rectangle pattern (login box shape)
-      x = rect.left + Math.random() * rect.width;
-      y = rect.top + Math.random() * rect.height;
-    } else {
-      // Concentrated at center
-      x = centerX + (Math.random() - 0.5) * rect.width * 0.3;
-      y = centerY + (Math.random() - 0.5) * rect.height * 0.3;
-    }
+    // Fade in UI
+    setTimeout(() => {
+      bgToggle.style.transition = 'opacity 0.6s ease';
+      bgToggle.style.opacity = '1';
+      hintElement.style.transition = 'opacity 0.6s ease';
+      hintElement.style.opacity = '0.9';
+    }, 100);
     
-    // Target: scattered in all directions
-    const targetAngle = Math.random() * Math.PI * 2;
-    const targetDist = 300 + Math.random() * 800;
-    
-    transitionParticles.push({
-      x, y,
-      startX: x,
-      startY: y,
-      targetX: centerX + Math.cos(targetAngle) * targetDist,
-      targetY: centerY + Math.sin(targetAngle) * targetDist,
-      size: Math.random() * 2.5 + 0.8,
-      color: Math.random() > 0.6 ? '#ff6b9d' : (Math.random() > 0.5 ? '#c471ed' : '#ffc0cb'),
-      alpha: 1,
-      rotationSpeed: (Math.random() - 0.5) * 0.02
-    });
-  }
+    // Completely remove login container from DOM after transition
+    setTimeout(() => {
+      loginContainer.remove();
+    }, 600);
+  }, 500);
   
-  // Create falling/morphing particles
-  const formingParticles = [];
-  for (let i = 0; i < 400; i++) {
-    formingParticles.push({
-      x: Math.random() * window.innerWidth,
-      y: -50 - Math.random() * 200,
-      targetY: Math.random() * window.innerHeight,
-      speed: 2 + Math.random() * 4,
-      size: Math.random() * 2 + 0.5,
-      color: Math.random() > 0.5 ? '#ff6b9d' : '#ffc0cb',
-      alpha: 0
-    });
-  }
+  // Particle animation enhancement (subtle pulse effect on login success)
+  const startTime = Date.now();
+  const pulseDuration = 1200;
   
-  let startTime = Date.now();
-  const duration = 6000;
-  
-  function animateTransition() {
+  function pulseEffect() {
     const elapsed = Date.now() - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    drawBackground();
-    
-    // Phase 1: Explosion (0-0.4)
-    if (progress < 0.4) {
-      const explosionProgress = progress / 0.4;
-      const easeProgress = 1 - Math.pow(1 - explosionProgress, 2);
-      
-      for (let p of transitionParticles) {
-        p.x = p.startX + (p.targetX - p.startX) * easeProgress;
-        p.y = p.startY + (p.targetY - p.startY) * easeProgress;
-        
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(explosionProgress * Math.PI * 2);
-        ctx.beginPath();
-        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha;
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-    
-    // Phase 2: Fade and form new particles (0.3-0.7)
-    if (progress >= 0.3 && progress < 0.7) {
-      const formProgress = (progress - 0.3) / 0.4;
-      
-      // Fade out explosion particles
-      for (let p of transitionParticles) {
-        p.alpha = 1 - formProgress;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha * 0.6;
-        ctx.fill();
-      }
-      
-      // Fade in forming particles
-      for (let p of formingParticles) {
-        p.y += p.speed;
-        p.alpha = formProgress;
-        
-        if (p.y > p.targetY) {
-          p.y = -50;
-        }
-        
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha * 0.7;
-        ctx.fill();
-      }
-    }
-    
-    // Phase 3: Transition to main site particles (0.7-1.0)
-    if (progress >= 0.7) {
-      const finalProgress = (progress - 0.7) / 0.3;
-      
-      // Draw forming particles with circular arrangement emerging
-      for (let i = 0; i < formingParticles.length; i++) {
-        const p = formingParticles[i];
-        
-        // Calculate target position in circle
-        const targetAngle = (i / formingParticles.length) * Math.PI * 2;
-        const targetRadius = Math.min(window.innerWidth, window.innerHeight) * 0.2;
-        const targetX = window.innerWidth / 2 + Math.cos(targetAngle) * targetRadius;
-        const targetY = window.innerHeight / 2 + Math.sin(targetAngle) * targetRadius;
-        
-        // Interpolate to circle position
-        p.x += (targetX - p.x) * finalProgress * 0.15;
-        p.y += (targetY - p.y) * finalProgress * 0.15;
-        
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = 1;
-        ctx.fill();
-      }
-    }
-    
-    ctx.globalAlpha = 1;
+    const progress = Math.min(elapsed / pulseDuration, 1);
     
     if (progress < 1) {
-      requestAnimationFrame(animateTransition);
-    } else {
-      // Animation complete - redirect
-      window.location.href = 'https://himasopn.github.io/ani/';
+      // Create subtle expansion/contraction effect
+      const pulseScale = 1 + Math.sin(progress * Math.PI) * 0.08;
+      particles.forEach(p => {
+        const dx = p.centerX + Math.cos(angle + p.angleOffset) * p.radius * pulseScale - p.x;
+        const dy = p.centerY + Math.sin(angle + p.angleOffset) * p.radius * pulseScale - p.y;
+        p.x += dx * 0.15;
+        p.y += dy * 0.15;
+      });
+      requestAnimationFrame(pulseEffect);
     }
   }
-  
-  animateTransition();
+  pulseEffect();
 }
+
+/* ---------------------------
+   Initialize
+   --------------------------- */
+function initAll() {
+  rebuildParticles();
+  updateCenterForParticles();
+  buildBgMenu();
+}
+initAll();
+
+/* ---------------------------
+   Touch adjustments
+   --------------------------- */
+document.addEventListener('touchstart', function preventZoom(e) {
+  if (e.touches && e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+console.log('Interactive Particle Circle initialized — particles:', totalParticlesCount);
 </script>
 </body>
 </html>
+```

@@ -303,9 +303,12 @@ function generateAuroraPoints() {
   const tempCanvas = document.createElement('canvas');
   const tempCtx = tempCanvas.getContext('2d');
   
-  const fontSize = Math.min(window.innerWidth * 0.15, 120);
-  tempCanvas.width = window.innerWidth;
-  tempCanvas.height = window.innerHeight;
+  const fontSize = Math.min(window.innerWidth * 0.18, 140);
+  const textWidth = fontSize * 4.5; // Approximate width of "AURORA"
+  const textHeight = fontSize;
+  
+  tempCanvas.width = textWidth;
+  tempCanvas.height = textHeight;
   
   tempCtx.font = `bold ${fontSize}px Arial, sans-serif`;
   tempCtx.fillStyle = 'white';
@@ -315,13 +318,22 @@ function generateAuroraPoints() {
   
   const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
   const points = [];
-  const sampling = 1.5; // Reduced for higher density
+  const sampling = 1.5; // High density
+  
+  // Calculate center offset to position text in middle of screen
+  const screenCenterX = window.innerWidth / 2;
+  const screenCenterY = window.innerHeight / 2;
+  const textOffsetX = screenCenterX - tempCanvas.width / 2;
+  const textOffsetY = screenCenterY - tempCanvas.height / 2;
   
   for (let y = 0; y < imageData.height; y += sampling) {
     for (let x = 0; x < imageData.width; x += sampling) {
       const i = (y * imageData.width + x) * 4;
       if (imageData.data[i + 3] > 128) {
-        points.push({ x, y });
+        points.push({ 
+          x: x + textOffsetX, 
+          y: y + textOffsetY 
+        });
       }
     }
   }

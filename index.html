@@ -247,7 +247,11 @@ function updateAndDrawParticles() {
 let lastTime = performance.now();
 const targetFrameTime = 1000 / 60;
 
+let animationRunning = true;
+
 function loop(currentTime) {
+  if (!animationRunning) return;
+  
   const deltaTime = currentTime - lastTime;
   
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
@@ -345,6 +349,7 @@ function easeInOutQuart(t) {
 
 function startParticleTransition() {
   loginContainer.classList.add('hide');
+  animationRunning = false;
   
   const rect = loginContainer.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
@@ -395,13 +400,14 @@ function startParticleTransition() {
   }
   
   let startTime = performance.now();
-  const duration = 5500;
+  const duration = 5000;
   let lastFrameTime = startTime;
+  let rafId = null;
   
   function animateTransition(currentTime) {
     const elapsed = currentTime - startTime;
-    const deltaTime = currentTime - lastFrameTime;
-    const smoothDelta = Math.min(deltaTime / 16.67, 2);
+    const deltaTime = Math.min(currentTime - lastFrameTime, 32);
+    const smoothDelta = deltaTime / 16.67;
     lastFrameTime = currentTime;
     
     const progress = Math.min(elapsed / duration, 1);
@@ -409,14 +415,17 @@ function startParticleTransition() {
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
     drawBackground();
     
-    if (progress < 0.3) {
-      const explosionProgress = progress / 0.3;
+    if (progress < 0.28) {
+      const explosionProgress = progress / 0.28;
       const easeProgress = easeOutExpo(explosionProgress);
       
-      for (let p of transitionParticles) {
+      for (let i = 0; i < transitionParticles.length; i++) {
+        const p = transitionParticles[i];
         p.x = p.startX + (p.explosionX - p.startX) * easeProgress;
         p.y = p.startY + (p.explosionY - p.startY) * easeProgress;
         p.rotation += p.rotationSpeed * smoothDelta;
+        
+        const alpha = p.alpha * (1 - explosionProgress * 0.3);
         
         ctx.save();
         ctx.translate(p.x, p.y);
@@ -424,40 +433,43 @@ function startParticleTransition() {
         ctx.beginPath();
         ctx.arc(0, 0, p.size, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha * (1 - explosionProgress * 0.2);
+        ctx.globalAlpha = alpha;
         ctx.fill();
         ctx.restore();
       }
     }
-    else if (progress >= 0.3 && progress < 0.65) {
-      const gatherProgress = (progress - 0.3) / 0.35;
+    else if (progress >= 0.28 && progress < 0.62) {
+      const gatherProgress = (progress - 0.28) / 0.34;
       const easeProgress = easeInOutCubic(gatherProgress);
       
-      for (let p of transitionParticles) {
-        const currentX = p.explosionX + (p.textX - p.explosionX) * easeProgress;
-        const currentY = p.explosionY + (p.textY - p.explosionY) * easeProgress;
+      for (let i = 0; i < transitionParticles.length; i++) {
+        const p = transitionParticles[i];
+        const targetX = p.explosionX + (p.textX - p.explosionX) * easeProgress;
+        const targetY = p.explosionY + (p.textY - p.explosionY) * easeProgress;
         
-        p.x += (currentX - p.x) * 0.15 * smoothDelta;
-        p.y += (currentY - p.y) * 0.15 * smoothDelta;
+        p.x += (targetX - p.x) * 0.18 * smoothDelta;
+        p.y += (targetY - p.y) * 0.18 * smoothDelta;
         
-        p.alpha = 0.4 + 0.6 * easeProgress;
+        p.alpha = 0.35 + 0.65 * easeProgress;
         
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * (0.8 + 0.2 * easeProgress), 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size * (0.75 + 0.25 * easeProgress), 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.alpha;
         ctx.fill();
       }
     }
     else {
-      const holdProgress = (progress - 0.65) / 0.35;
+      const holdProgress = (progress - 0.62) / 0.38;
       
-      for (let p of transitionParticles) {
+      for (let i = 0; i < transitionParticles.length; i++) {
+        const p = transitionParticles[i];
+        const wave = Math.sin(elapsed * 0.0018 + p.textX * 0.008) * 1.2;
         const targetX = p.textX;
-        const targetY = p.textY + Math.sin(elapsed * 0.002 + p.textX * 0.01) * 1.5;
+        const targetY = p.textY + wave;
         
-        p.x += (targetX - p.x) * 0.08 * smoothDelta;
-        p.y += (targetY - p.y) * 0.08 * smoothDelta;
+        p.x += (targetX - p.x) * 0.12 * smoothDelta;
+        p.y += (targetY - p.y) * 0.12 * smoothDelta;
         
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -466,17 +478,18 @@ function startParticleTransition() {
         ctx.fill();
       }
       
-      if (holdProgress > 0.6) {
+      if (elapsed >= 4500) {
+        cancelAnimationFrame(rafId);
         window.location.href = 'https://himasopn.github.io/ani/';
         return;
       }
     }
     
     ctx.globalAlpha = 1;
-    requestAnimationFrame(animateTransition);
+    rafId = requestAnimationFrame(animateTransition);
   }
   
-  requestAnimationFrame(animateTransition);
+  rafId = requestAnimationFrame(animateTransition);
 }
 </script>
 </body>
